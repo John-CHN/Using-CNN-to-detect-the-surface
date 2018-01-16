@@ -1,0 +1,173 @@
+from keras.models import Sequential
+from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.utils import np_utils
+from keras import backend as K
+from keras.layers import Flatten, Dense
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation
+import matplotlib.pyplot as plt
+from keras.models import Model, Input
+from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dropout, Activation,Flatten,Dense,Average
+from keras.utils import to_categorical
+from keras.losses import categorical_crossentropy
+from keras.callbacks import ModelCheckpoint
+from keras.optimizers import Adam
+#from keras.datasets import cifar10
+from keras.utils import np_utils
+import matplotlib.pyplot as plt
+import numpy as np
+#from IPython.display import SVG
+from keras.utils.vis_utils import model_to_dot
+root_dir = "C:/Users/ksuser_2/Desktop/Type3"
+categories = ["試験片なし","小划痕","擦伤与漆面不良"]
+nb_classes = len(categories)
+x_train, x_test, y_train, y_test = np.load("C:/Users/ksuser_2/Desktop/Type3/Type3newidol.npy")
+#(x_train, y_train), (x_test, y_test) = cifar10.load_data()
+x_train = x_train.astype("float") / 256
+x_test  = x_test.astype("float")  / 256
+y_train = np_utils.to_categorical(y_train, nb_classes)
+y_test  = np_utils.to_categorical(y_test, nb_classes)
+
+input_shape = x_train[0,:,:,:].shape
+model_input = Input(shape=input_shape)
+def conv_pool_cnn(model_input):
+    x = Conv2D(16, kernel_size=(3, 3), activation='relu', padding='same')(model_input)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=1)(x)
+    x= Dropout(0.5)(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=1)(x)
+    x = Dropout(0.5)(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = MaxPooling2D(pool_size=(3, 3), strides=1)(x)
+    x = Dropout(0.5)(x)
+    x = Conv2D(128, (3, 3), activation='relu', padding='same')(x)
+    x = Dropout(0.5)(x)
+    x= Flatten()(x)
+    x=Dense(1000,name="dense1")(x)
+    x=Activation(activation='relu')(x)
+    #x = GlobalAveragePooling2D('channels_last')(x)
+    x = Dropout(0.5)(x)
+    x=Dense(nb_classes)(x)
+    x = Activation(activation='softmax')(x)
+    model = Model(model_input, x, name='conv_pool_cnn')
+    return model
+def all_cnn(model_input):
+    x = Conv2D(16, kernel_size=(3, 3), activation='relu', padding='same')(model_input)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same', strides=2)(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same', strides=2)(x)
+    x = Conv2D(64, (3, 3), activation='relu', padding='same')(x)
+    x = Conv2D(128, (1, 1), activation='relu')(x)
+    x = Conv2D(3, (1, 1), activation='relu')(x)
+    x = GlobalAveragePooling2D('channels_last')(x)
+    x = Activation(activation='softmax')(x)
+
+    model = Model(model_input, x, name='all_cnn')
+
+    return model
+def evaluate_error(model):
+    pred = model.predict(x_test, batch_size = 50)
+    pred = np.argmax(pred, axis=1)
+    pred = np.expand_dims(pred, axis=1) # make same shape as y_test
+    error = np.sum(np.not_equal(pred, y_test)) / y_test.shape[0]
+    return error
+def compile_and_train(model):
+    model.compile(loss=categorical_crossentropy, optimizer=Adam(), metrics=['acc'])
+    filepath = 'C:/Users/ksuser_2/Desktop/Type3/' + model.name + '.{epoch:02d}-{loss:.2f}.hdf5'
+    checkpoint = ModelCheckpoint(filepath, monitor='loss', verbose=0, save_weights_only=True,
+                                 save_best_only=True, mode='auto', period=1)
+    history = model.fit(x=x_train, y=y_train, batch_size=32,
+                        epochs=10, verbose=1, callbacks=[checkpoint], validation_split=0.2)
+    json_string = model.to_json()
+    # モデルのファイル名　拡張子.json
+    #open('C:/Users/ksuser_2/Desktop/Type3/'+model_input3idol.json', 'w').write(json_string)
+    # モデルを保存する --- (※4)
+    #hdf5_file = "C:/Users/ksuser_2/Desktop/Type3/3idol-model.hdf5"
+    #model.save_weights(hdf5_file)
+    p1, = plt.plot(history.history['acc'])
+    p2, = plt.plot(history.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend([p1, p2], ['train', 'test'], loc='upper left')
+    plt.show()
+    p3, = plt.plot(history.history['loss'])
+    p4, = plt.plot(history.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend([p3, p4], ['train', 'test'], loc='upper left')
+    plt.show()
+    return history
+def nin_cnn(model_input):
+    # mlpconv block 1
+    x = Conv2D(32, (5, 5), activation='relu', padding='valid')(model_input)
+    x = Conv2D(32, (1, 1), activation='relu')(x)
+    x = Conv2D(32, (1, 1), activation='relu')(x)
+    x = MaxPooling2D((2, 2))(x)
+    x = Dropout(0.5)(x)
+
+    # mlpconv block2
+    x = Conv2D(64, (3, 3), activation='relu', padding='valid')(x)
+    x = Conv2D(64, (1, 1), activation='relu')(x)
+    x = Conv2D(64, (1, 1), activation='relu')(x)
+    x = MaxPooling2D((2, 2))(x)
+    x = Dropout(0.5)(x)
+
+    # mlpconv block3
+    x = Conv2D(128, (3, 3), activation='relu', padding='valid')(x)
+    x = Conv2D(32, (1, 1), activation='relu')(x)
+    x = Conv2D(3, (1, 1), activation='relu')(x)
+
+    x = GlobalAveragePooling2D()(x)
+    x = Activation(activation='softmax')(x)
+
+    model = Model(model_input, x, name='nin_cnn')
+
+    return model
+
+conv_pool_cnn_model = conv_pool_cnn(model_input)
+#_ = compile_and_train(conv_pool_cnn_modeltianyu)
+#evaluate_error(conv_pool_cnn_model)
+#all_model='C:/Users/ksuser_2/Desktop/Type3/新建文件夹/all_cnn.49-0.34.hdf5'
+#all_cnn_model = model_from_json(open(all_model).read())
+#all_cnn.load_weights(all_model)
+#model.summary()
+all_cnn_model = all_cnn(model_input)
+nin_cnn_model = nin_cnn(model_input)
+#conv_pool_cnn_model.load_weights('C:/Users/ksuser_2/Desktop/Type3/新建文件夹/conv_pool_cnn.49-0.07.hdf5')
+#para0="C://Users//ksuser_2//Desktop//Type3//para//conv_pool_cnn.49-0.07.hdf5"
+para1="C://Users//ksuser_2//Desktop//Type3//para//all_cnn.49-0.34.hdf5"
+para2="C://Users//ksuser_2//Desktop//Type3//para//nin_cnn.50-0.06.hdf5"
+all_cnn_model.load_weights(para1)
+nin_cnn_model.load_weights(para2)
+conv_pool_cnn_model.load_weights(para0)
+models = [ all_cnn_model, nin_cnn_model,conv_pool_cnn_model]
+
+def test(model):
+    pred = model.predict(x_test, batch_size = 50)
+    pred = np.argmax(pred, axis=1)
+    error = np.sum(pred != y_test) / y_test.shape[0]
+
+
+
+def ensemble(models, model_input):
+
+    outputs = [model.outputs[0] for model in models]
+    y = Average()(outputs)
+
+    model = Model(model_input, y, name='ensemble')
+
+    return model
+
+ensemble_model = ensemble(models, model_input)
+ensemble_model.summary()
+
+_= compile_and_train(ensemble_model)
+evaluate_error(ensemble_model)
