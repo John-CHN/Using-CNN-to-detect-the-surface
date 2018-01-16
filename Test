@@ -1,0 +1,66 @@
+import keras
+import sys, os
+import scipy
+import scipy.misc
+import numpy as np
+from keras.models import model_from_json
+ 
+import json
+imsize = (50, 50)
+ 
+#認識したい画像のパスを指定する
+# ./blog_testpic/xxx.jpg といった指定を意味する
+testpic = "./idol_makedata/testdata/"
+#使用するモデルを指定する
+keras_model = "./idol_makedata/idol.json"
+keras_param = "./idol_makedata/idol-model.hdf5"
+ 
+#画像の読み込み
+#読み込んだ画像を32X32にする
+def load_image(path):
+    img = scipy.misc.imread(path, mode="RGB")
+    img = scipy.misc.imresize(img, imsize)
+    img = img / 255.0 #RGBの最大値を指定
+    return img
+ 
+#リストで結果を返す関数
+def get_file(dir_path):
+    filenames = os.listdir(dir_path)
+    return filenames
+ 
+#メイン開始
+if __name__ == "__main__":
+ 
+    #画像を読み込んで、ファイル名をリスト化する。
+    pic = get_file(testpic)
+    print(pic)
+    
+    #モデルの読み込み
+    model = model_from_json(open(keras_model).read())
+    model.load_weights(keras_param)
+    model.summary()
+    ##ここまでで実行するとモデルの形が結果に表示される
+    
+    #リスト化したファイルから読み込んで処理する
+    for i in pic:
+        print(i) # ファイル名の出力
+        
+        #画像ディレクトリにあるファイルのi番目を読み込む
+        img = load_image(testpic + i)
+        
+        prd = model.predict(np.array([img]))
+        print(prd)
+        
+        #確信度最大値を取得する
+        prelabel = np.argmax(prd, axis=1)
+        print(prelabel)
+        
+        # 各画像ファイルにairplaneなら0が、dogなら5、shipなら8のラベルが付いている
+        if prelabel == 0:
+            print(">>> 試験片あり")
+        elif prelabel == 1:
+            print(">>> 試験片なし")
+       
+			
+        print()
+        print()
