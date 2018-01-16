@@ -1,0 +1,183 @@
+from keras.models import Sequential
+from keras.layers import Convolution2D, MaxPooling2D
+from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.utils import np_utils
+import numpy as np
+from keras import backend as K
+from keras.layers import Flatten, Dense
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers.core import Dense, Dropout, Activation
+from keras.utils import np_utils
+import matplotlib.pyplot as plt
+#from IPython.display import SVG
+from keras.utils.vis_utils import model_to_dot
+
+# 分類対象のカテゴリ
+root_dir = "C:/Users/ksuser_2/Desktop/Type3/"
+categories = ["試験片なし","小划痕","擦伤与漆面不良"]
+nb_classes = len(categories)
+image_size = 64#
+
+ 
+# データをロード --- (※1)
+def main():
+    global X_train
+    global X_test
+    global y_train
+    global y_test
+    X_train, X_test, y_train, y_test = np.load("C:/Users/ksuser_2/Desktop/Type3/Type3idol.npy")
+    # データを正規化する
+    X_train = X_train.astype("float") / 256
+    X_test  = X_test.astype("float")  / 256
+    y_train = np_utils.to_categorical(y_train, nb_classes)
+    y_test  = np_utils.to_categorical(y_test, nb_classes)
+    # モデルを訓練し評価する    
+    model = model_train(X_train, y_train)
+    model_eval(model, X_test, y_test)
+ 
+# モデルを構築 --- (※2)
+def build_model(in_shape):
+    model = Sequential()
+    
+    print(in_shape)
+    #畳み込み層の作成
+    #1層目の追加　　１０２４個の層を最初に作り、フィルター3*3のフィルターを１６個作成
+    model.add(Convolution2D(16, 3, 3, border_mode="same", input_shape=in_shape)) 
+    model.add(Activation("relu"))
+    
+    #２層目の畳み込み層
+    model.add(Convolution2D(16, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+     #プーリング層
+    model.add(MaxPooling2D())
+    
+    #Dropoutとは過学習を防ぐためのもの　0.5は次のニューロンへのパスをランダムに半分にするという意味
+    model.add(Dropout(0.5))
+    
+    #３層目の作成
+    model.add(Convolution2D(32, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+    #４層目の作成
+    model.add(Convolution2D(32, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+     #プーリング層
+    model.add(MaxPooling2D())
+    model.add(Dropout(0.5))
+    
+    #５層目
+    model.add(Convolution2D(64, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+    #6層目
+    model.add(Convolution2D(64, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+    #プーリング層
+    model.add(MaxPooling2D())
+    
+    #Dropout
+    model.add(Dropout(0.5))
+    
+    #7層目
+    model.add(Convolution2D(128, 3, 3, border_mode="same"))
+    model.add(Activation("relu"))
+    
+    #Dropout
+    model.add(Dropout(0.5))
+    
+    #平坦化
+    model.add(Flatten())
+    
+    #8層目　全結合層　FC
+    model.add(Dense(1000, name='dense1'))
+    model.add(Activation('relu'))
+    #Dropout
+    model.add(Dropout(0.5))
+
+    #8層目　引数nub_classesとは分類の数を定義する。
+    model.add(Dense(nb_classes))
+    model.add(Activation('softmax'))
+    
+    #ここまででモデルの層完成
+    #モデルのサマリーの表示
+    #model.summary()
+    #plt.plot(model, show_shapes=True, show_layer_names=True, to_file='model.png')
+    
+    #lossは損失関数を定義するところ
+    model.compile(loss="categorical_crossentropy", 
+        metrics   = ["accuracy"], 
+        optimizer = "adam"
+    )
+    return model
+ 
+ 
+# モデルを訓練する --- (※3)
+def model_train(X, y):
+    model = build_model(X.shape[1:])
+    global hist
+    hist=model.fit(X_train, y_train, epochs=20, batch_size=32,validation_data=(X_test,y_test))
+    #global history
+    #history = model.fit(X_train, y_train,
+                    #batch_size=50,
+                    #nb_epoch=500,
+                    #verbose=1,
+                    #validation_data=(X_test, y_test))
+    
+    #学習モデルの保存
+    json_string = model.to_json()
+     #モデルのファイル名　拡張子.json
+    open('C:/Users/ksuser_2/Desktop/Type3/3idol.json', 'w').write(json_string)
+    
+    # モデルを保存する --- (※4)
+    hdf5_file = "C:/Users/ksuser_2/Desktop/Type3/3idol-model.hdf5"
+    model.save_weights(hdf5_file)
+    return model
+ 
+# モデルを評価する --- (※5)
+def model_eval(model, X, y):
+    score = model.evaluate(X, y)
+    print('loss=', score[0])
+    print('accuracy=', score[1])
+    print(hist.history)
+    # list all data in history
+    print(hist.history.keys())
+    # summarize history for accuracy
+    p1,=plt.plot(hist.history['acc'])
+    p2,=plt.plot(hist.history['val_acc'])
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend([p1,p2],['train', 'test'], loc='upper left')
+    plt.show()
+    # summarize history for loss
+    p3,=plt.plot(hist.history['loss'])
+    p4,=plt.plot(hist.history['val_loss'])
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend([p3,p4],['train', 'test'], loc='upper left')
+    plt.show()
+    #loss     = history.history['loss']
+    #val_loss = history.history['val_loss']
+    #val_acc  = history.history['val_acc']
+    #nb_epoch = len(loss)
+    #plt.plot(range(nb_epoch), loss, marker='.', label='loss')
+    #plt.plot(range(nb_epoch), val_loss, marker='.', label='val_loss')
+    #plt.plot(range(nb_epoch), accuracy, marker='.', label='accuracy')
+    #plt.plot(range(nb_epoch), val_acc, marker='.', label='val_accuracy')
+    #plt.legend(loc='best', fontsize=10)
+    #plt.grid()
+    #plt.xlabel('epoch')
+    #plt.ylabel('loss')
+    #plt.show()
+
+# モデルの可視化
+    #SVG(model_to_dot(model).create(prog='dot', format='svg'))
+ 
+if __name__ == "__main__":
+
+    main()
