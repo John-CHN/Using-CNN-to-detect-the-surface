@@ -171,3 +171,13 @@ ensemble_model.summary()
 
 _= compile_and_train(ensemble_model)
 evaluate_error(ensemble_model)
+
+pair_A = [conv_pool_cnn_model, all_cnn_model]
+pair_B = [conv_pool_cnn_model, nin_cnn_model]
+pair_C = [all_cnn_model, nin_cnn_model]
+pair_A_ensemble_model = ensemble(pair_A, model_input)
+evaluate_error(pair_A_ensemble_model)
+pair_B_ensemble_model = ensemble(pair_B, model_input)
+evaluate_error(pair_B_ensemble_model)
+pair_C_ensemble_model = ensemble(pair_C, model_input)
+evaluate_error(pair_C_ensemble_model)
